@@ -35,7 +35,8 @@ class TestLibClang(unittest.TestCase):
             )
 
         def visitor(parent, cursor, client_data):
-            print parent, cursor, client_data
+            print "parent", parent, "cursor", cursor
+            print "usr", cursor.usr, "spelling", cursor.spelling
             return CXChildVisitResult.CXChildVisit_Recurse
 
         c_visitor = CXCursorVisitor(visitor)
@@ -44,6 +45,11 @@ class TestLibClang(unittest.TestCase):
             libclang.clang_getTranslationUnitCursor(tu),
             c_visitor,
             0,
+            )
+
+        self.assertEqual(
+            "test.c",
+            libclang.clang_getTranslationUnitSpelling(tu),
             )
 
         libclang.clang_disposeTranslationUnit(tu)

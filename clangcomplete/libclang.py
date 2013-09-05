@@ -12,6 +12,8 @@ from ctypes import (
     CFUNCTYPE,
     )
 
+from .util import cfunc
+
 libclang = None
 
 CXIndex = c_void_p
@@ -228,12 +230,23 @@ class CXCursor(Structure):
 
     def __repr__(self):
         kind = CXCursorKind.reverse_lookup(self.kind)
-        return "<%s kind=%s>" % (
+        return "<%s@%i kind=%s xdata=%i>" % (
             self.__class__.__name__,
+            id(self),
             kind,
+            self.xdata,
             )
 
-#enum
+
+    @property
+    def usr(self):
+        return libclang.clang_getCursorUSR(self)
+
+
+    @property
+    def spelling(self):
+        return libclang.clang_getCursorSpelling(self)
+
 
 class CXChildVisitResult(c_int):
   CXChildVisit_Break = 0
@@ -243,33 +256,25 @@ class CXChildVisitResult(c_int):
 CXCursorVisitor = CFUNCTYPE(CXChildVisitResult, CXCursor, CXCursor, CXClientData)
 
 
-class CFuncDescriptor(object):
+class _CXString(Structure):
+    # nicked from the original libclang bindings
+    """Helper for transforming CXString results."""
 
-    def __init__(self, name, restype, argtypes):
-        self.name = name
-        self.restype = restype
-        self.argtypes = argtypes
-
-
-    def __get__(self, instance, clazz):
-        assert clazz.LIB is not None, "You must invoke setup with a valid libclang.dylib first!"
-        f = getattr(clazz.LIB, self.name)
-        f.restype = self.restype
-        f.argtypes = self.argtypes
-        # replace ourselves with the
-        # actual function to speed up
-        # a little
-        setattr(clazz, self.name, f)
-        return f
+    _fields_ = [("spelling", c_char_p), ("free", c_int)]
 
 
-def cfunc(restype, arglist):
+    def __del__(self):
+        libclang.clang_disposeString(self)
 
-    def d(func):
-        fname = func.func_name
-        return CFuncDescriptor(fname, restype, arglist)
 
-    return d
+    @staticmethod
+    def from_result(res, fn, args):
+        assert isinstance(res, _CXString)
+        return libclang.clang_getCString(res)
+
+
+def cxstringfunc(argtypes):
+    return cfunc(_CXString, argtypes, errcheck=_CXString.from_result)
 
 
 class libclang(object):
@@ -304,6 +309,26 @@ class libclang(object):
 
     @cfunc(c_uint, [CXCursor, CXCursorVisitor, CXClientData])
     def clang_visitChildren(parent, visitor, client_data): pass
+
+
+    @cfunc(c_char_p, [_CXString])
+    def clang_getCString(cxstring): pass
+
+
+    @cfunc(None, [_CXString])
+    def clang_disposeString(s): pass
+
+
+    @cxstringfunc([CXTranslationUnit])
+    def clang_getTranslationUnitSpelling(CTUnit): pass
+
+
+    @cxstringfunc([CXCursor])
+    def clang_getCursorUSR(cursor): pass
+
+
+    @cxstringfunc([CXCursor])
+    def clang_getCursorSpelling(cursor): pass
 
 
 def setup():
