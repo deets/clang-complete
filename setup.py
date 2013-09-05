@@ -1,25 +1,22 @@
-import os
 import sys
 from setuptools import setup, find_packages
 
+version = "%i.%i" % sys.version_info[:2]
 setup(
-    name="ClangComplete",
-    version="0.1",
-    description="clang-complete implementation for autocomplete-clang-async for Emacs",
-    author="Diez B. Roggisch",
-    author_email="deets@web.de",
-    license="MIT",
-    packages=find_packages(exclude=['ez_setup', 'tests']),
-    zip_safe=False,
-    include_package_data=True,
-    install_requires=[
-        "abl.robot",
+    name = "clang-complete",
+    version = "0.1",
+    author = "Diez B. Roggisch",
+    author_email = "deets@web.de",
+    description = "A package to allow clang completion in emacs.",
+    packages = find_packages(),
+    install_requires = [
+        "abl.util",
         ],
-    classifiers = [
-    ],
-    entry_points={
+    license = "PSF",
+    keywords = "python clang autocomplete",
+    entry_points = {
         'console_scripts': [
-            'clang-complete=clangcomplete:ClangCompleteRobot.main',
-            ]
-        },
+            'clang-complete = clangcomplete:main',
+        ],
+    }
 )
