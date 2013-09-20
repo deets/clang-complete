@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
             cstring = ac_results.contents.Results[i].CompletionString
             for chunk_num in xrange(libclang.clang_getNumCompletionChunks(cstring)):
                 kind = libclang.clang_getCompletionChunkKind(cstring, chunk_num)
-                if kind.value == CXCompletionChunkKind.CXCompletionChunk_TypedText:
+                if kind == CXCompletionChunkKind.CXCompletionChunk_TypedText:
                     completions.add(libclang.clang_getCompletionChunkText(cstring, chunk_num))
 
         libclang.clang_disposeCodeCompleteResults(ac_results)
