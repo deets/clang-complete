@@ -282,10 +282,9 @@ CXCursorVisitor = CFUNCTYPE(CXChildVisitResult, CXCursor, CXCursor, CXClientData
 CXCompletionString = c_void_p
 
 class CXCompletionResult(Structure):
-
     _fields_ = [
-        ("CompletionString", CXCompletionString),
         ("CursorKind", CXCursorKind),
+        ("CompletionString", CXCompletionString),
         ]
 
 

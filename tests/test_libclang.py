@@ -112,14 +112,19 @@ int main(int argc, char** argv) {
             ac_results.contents.NumResults,
             3,
             )
-        #libclang.clang_sortCodeCompletionResults(ac_results.contents.Results, ac_results.contents.NumResults)
-        for i in xrange(1, 2):#xrange(ac_results.contents.NumResults):
-            import pdb; pdb.set_trace()
+        libclang.clang_sortCodeCompletionResults(ac_results.contents.Results, ac_results.contents.NumResults)
+
+        completions = set()
+        for i in xrange(ac_results.contents.NumResults):
             cstring = ac_results.contents.Results[i].CompletionString
             for chunk_num in xrange(libclang.clang_getNumCompletionChunks(cstring)):
                 kind = libclang.clang_getCompletionChunkKind(cstring, chunk_num)
-                if kind == CXCompletionChunkKind.CXCompletionChunk_TypedText:
-                    print libclang.clang_getCompletionChunkText(cstring, chunk_num)
+                if kind.value == CXCompletionChunkKind.CXCompletionChunk_TypedText:
+                    completions.add(libclang.clang_getCompletionChunkText(cstring, chunk_num))
 
         libclang.clang_disposeCodeCompleteResults(ac_results)
+        self.assertEqual(
+            { "baz", "bar", "padamm",},
+            completions,
+            )
 
