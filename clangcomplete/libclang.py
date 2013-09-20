@@ -248,12 +248,52 @@ class CXCursor(Structure):
         return libclang.clang_getCursorSpelling(self)
 
 
+class CXCompletionChunkKind(c_int):
+  CXCompletionChunk_Optional = 0
+  CXCompletionChunk_TypedText = 1
+  CXCompletionChunk_Text = 2
+  CXCompletionChunk_Placeholder = 3
+  CXCompletionChunk_Informative = 4
+  CXCompletionChunk_CurrentParameter = 5
+  CXCompletionChunk_LeftParen = 6
+  CXCompletionChunk_RightParen = 7
+  CXCompletionChunk_LeftBracket = 8
+  CXCompletionChunk_RightBracket = 9
+  CXCompletionChunk_LeftBrace = 10
+  CXCompletionChunk_RightBrace = 11
+  CXCompletionChunk_LeftAngle = 12
+  CXCompletionChunk_RightAngle = 13
+  CXCompletionChunk_Comma = 14
+  CXCompletionChunk_ResultType = 15
+  CXCompletionChunk_Colon = 16
+  CXCompletionChunk_SemiColon = 17
+  CXCompletionChunk_Equal = 18
+  CXCompletionChunk_HorizontalSpace = 19
+  CXCompletionChunk_VerticalSpace = 20
+
+
 class CXChildVisitResult(c_int):
   CXChildVisit_Break = 0
   CXChildVisit_Continue = 1
   CXChildVisit_Recurse = 2
 
 CXCursorVisitor = CFUNCTYPE(CXChildVisitResult, CXCursor, CXCursor, CXClientData)
+
+CXCompletionString = c_void_p
+
+class CXCompletionResult(Structure):
+
+    _fields_ = [
+        ("CompletionString", CXCompletionString),
+        ("CursorKind", CXCursorKind),
+        ]
+
+
+class CXCodeCompleteResults(Structure):
+    _fields_ = [
+        ("Results" , POINTER(CXCompletionResult)),
+        ("NumResults", c_uint),
+        ]
 
 
 class _CXString(Structure):
@@ -299,6 +339,12 @@ class libclang(object):
             num_unsaved_files,
             options): pass
 
+
+    @cfunc(c_int, [CXTranslationUnit, c_uint, POINTER(CXUnsavedFile), c_uint])
+    def clang_reparseTranslationUnit(tu, num_unsaved_files, unsaved_files, options):
+        pass
+
+
     @cfunc(None, [CXTranslationUnit])
     def clang_disposeTranslationUnit(translation_unit): pass
 
@@ -329,6 +375,32 @@ class libclang(object):
 
     @cxstringfunc([CXCursor])
     def clang_getCursorSpelling(cursor): pass
+
+
+    @cfunc(POINTER(CXCodeCompleteResults),
+           [CXTranslationUnit, c_char_p, c_uint, c_uint, POINTER(CXUnsavedFile), c_uint, c_uint])
+    def clang_codeCompleteAt(tu, complete_filename, complete_line, complete_column, unsaved_files, num_unsaved_files, options):
+        pass
+
+
+    @cfunc(None, [POINTER(CXCodeCompleteResults)])
+    def clang_disposeCodeCompleteResults(results): pass
+
+
+    @cfunc(None,[POINTER(CXCompletionResult), c_uint])
+    def clang_sortCodeCompletionResults(Results, NumResults): pass
+
+
+    @cfunc(c_uint, [CXCompletionString])
+    def clang_getNumCompletionChunks(completion_string): pass
+
+
+    @cfunc(CXCompletionChunkKind, [CXCompletionString, c_uint])
+    def clang_getCompletionChunkKind(completion_string, chunk_num): pass
+
+
+    @cxstringfunc([CXCompletionString, c_uint])
+    def clang_getCompletionChunkText(completion_string, chuck_num): pass
 
 
 def setup():
