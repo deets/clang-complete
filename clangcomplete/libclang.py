@@ -279,6 +279,7 @@ class CXCompletionChunkKind(c_int):
             return self.value == other
         return False
 
+
 class CXChildVisitResult(c_int):
     CXChildVisit_Break = 0
     CXChildVisit_Continue = 1
