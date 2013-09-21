@@ -14,6 +14,7 @@ from .libclang import (
     libclang,
     CXUnsavedFile,
     CXCompletionChunkKind,
+    setup,
     )
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,9 @@ class AsyncSession(object):
 
         with TranslationUnit(self.idx, (row, col), self.unsaved_file()) as tu:
             for completion in tu:
-                outf.write("COMPLETION: %s\n" % completion.head)
+                completion_line = "COMPLETION: %s\n" % completion.head
+                logger.debug(completion_line)
+                outf.write(completion_line)
         # *no* newline after this!
         outf.write("$")
         outf.flush()
@@ -145,21 +148,23 @@ class AsyncSession(object):
 
 
 def mainloop(filename, inf=sys.stdin, outf=sys.stdout):
+    setup()
     session = AsyncSession(filename)
-    while session.running:
-        command = inf.readline().strip()
-        logger.debug("command: " + command)
-        command_callback = {
-            "COMPLETION" : session.completion,
-            "SOURCEFILE" : session.sourcefile,
-            "CMDLINEARGS" : session.cmdlineargs,
-            "SYNTAXCHECK" : session.syntaxcheck,
-            "REPARSE" : session.reparse,
-            "SHUTDOWN" : session.shutdown,
-            }.get(command)
-        if command_callback is None:
-            if command:
-                logger.debug("unknown command: %s" % command)
-        else:
-            command_callback(inf, outf)
+    with session:
+        while session.running:
+            command = inf.readline().strip()
+            logger.debug("command: " + command)
+            command_callback = {
+                "COMPLETION" : session.completion,
+                "SOURCEFILE" : session.sourcefile,
+                "CMDLINEARGS" : session.cmdlineargs,
+                "SYNTAXCHECK" : session.syntaxcheck,
+                "REPARSE" : session.reparse,
+                "SHUTDOWN" : session.shutdown,
+                }.get(command)
+            if command_callback is None:
+                if command:
+                    logger.debug("unknown command: %s" % command)
+            else:
+                command_callback(inf, outf)
 
