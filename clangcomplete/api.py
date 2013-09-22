@@ -3,9 +3,11 @@ import os
 import sys
 import subprocess
 import logging
+from cStringIO import StringIO
 
 from ctypes import (
     byref,
+    c_char_p,
     )
 
 from abl.util import Bunch
@@ -17,24 +19,28 @@ from .libclang import (
     setup,
     )
 
+from .util import source_for_autocomplete
+
 logger = logging.getLogger(__name__)
 
 
 class TranslationUnit(object):
 
-    def __init__(self, idx, point, unsaved_file):
+    def __init__(self, idx, point, unsaved_file, args):
         self.idx = idx
         self.point = point
         self.unsaved_file = unsaved_file
         self.filename = unsaved_file.Filename
+        self.args = args
 
 
     def __enter__(self):
+        args = (c_char_p * len(self.args))(*self.args)
         self.tu = libclang.clang_parseTranslationUnit(
             self.idx,
             self.filename,
-            None,
-            0,
+            args,
+            len(args),
             byref(self.unsaved_file),
             1,
             0,
@@ -71,10 +77,11 @@ class TranslationUnit(object):
 
 class AsyncSession(object):
 
-    def __init__(self, filename):
+    def __init__(self, filename, args):
         self.running = True
         self.filename = filename
         self.source = None
+        self.args = args
 
 
     def __enter__(self):
@@ -117,14 +124,28 @@ class AsyncSession(object):
         col = int(column_line.split(":")[1])
         logger.debug("completion at (%i:%i)" % (row, col))
 
-        with TranslationUnit(self.idx, (row, col), self.unsaved_file()) as tu:
+        self.run_completion(row, col, outf)
+        # *no* newline after this!
+        logger.debug("completion finished")
+        outf.write("$")
+        outf.flush()
+
+
+    def immediate(self, filename, outf):
+        with open(filename) as inf:
+            content = inf.read()
+        point, source = source_for_autocomplete(content)
+        inf = StringIO("row:%i\ncolumn:%i\nsource_length:%i\n%s\n\n" %
+                (point[0], point[1], len(source), source))
+        self.completion(inf, outf)
+
+
+    def run_completion(self, row, col, outf):
+        with TranslationUnit(self.idx, (row, col), self.unsaved_file(), self.args) as tu:
             for completion in tu:
                 completion_line = "COMPLETION: %s\n" % completion.head
                 logger.debug(completion_line)
                 outf.write(completion_line)
-        # *no* newline after this!
-        outf.write("$")
-        outf.flush()
 
 
     def reparse(self, inf, outf):
@@ -132,11 +153,13 @@ class AsyncSession(object):
 
 
     def cmdlineargs(self, inf, outf):
-        num_args_line = readline()
+        num_args_line = inf.readline()
         assert "num_args:" in num_args_line
         num_args = int(num_args_line.split(":")[1])
-        args = [readline.strip() for _ in xrange(num_args)]
-        logger.debug("updated cmdline args: %r" % args)
+        argline = inf.readline().strip()
+        logger.debug("argline: %r", argline)
+        self.args = argline.split(" ")
+        logger.debug("updated cmdline args: %r" % self.args)
 
 
     def syntaxcheck(self, inf, outf):
@@ -147,24 +170,28 @@ class AsyncSession(object):
         self.running = False
 
 
-def mainloop(filename, inf=sys.stdin, outf=sys.stdout):
+def mainloop(filename, args, inf=sys.stdin, outf=sys.stdout, immediate=False):
+    logger.debug("args: %r", args)
     setup()
-    session = AsyncSession(filename)
+    session = AsyncSession(filename, args)
     with session:
-        while session.running:
-            command = inf.readline().strip()
-            logger.debug("command: " + command)
-            command_callback = {
-                "COMPLETION" : session.completion,
-                "SOURCEFILE" : session.sourcefile,
-                "CMDLINEARGS" : session.cmdlineargs,
-                "SYNTAXCHECK" : session.syntaxcheck,
-                "REPARSE" : session.reparse,
-                "SHUTDOWN" : session.shutdown,
-                }.get(command)
-            if command_callback is None:
-                if command:
-                    logger.debug("unknown command: %s" % command)
-            else:
-                command_callback(inf, outf)
+        if immediate:
+            session.immediate(filename, outf)
+        else:
+            while session.running:
+                command = inf.readline().strip()
+                logger.debug("command: " + command)
+                command_callback = {
+                    "COMPLETION" : session.completion,
+                    "SOURCEFILE" : session.sourcefile,
+                    "CMDLINEARGS" : session.cmdlineargs,
+                    "SYNTAXCHECK" : session.syntaxcheck,
+                    "REPARSE" : session.reparse,
+                    "SHUTDOWN" : session.shutdown,
+                    }.get(command)
+                if command_callback is None:
+                    if command:
+                        logger.debug("unknown command: %s" % command)
+                else:
+                    command_callback(inf, outf)
 

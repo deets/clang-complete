@@ -8,6 +8,13 @@ def main():
         filename="/tmp/clangcomplete.log",
         level=logging.DEBUG,
         )
+    immediate = False
+
+    if "--immediate" in sys.argv:
+        immediate = True
+        sys.argv.remove("--immediate")
+
     filename = sys.argv[-1]
-    mainloop(filename, sys.stdin, sys.stdout)
+    args = sys.argv[1:-1]
+    mainloop(filename, args, sys.stdin, sys.stdout, immediate=immediate)
 
