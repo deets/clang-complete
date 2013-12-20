@@ -62,11 +62,19 @@ class TranslationUnit(object):
         ac_results = self.ac_results
         for i in xrange(ac_results.contents.NumResults):
             cstring = ac_results.contents.Results[i].CompletionString
+            head = None
+            rest = ""
             for chunk_num in xrange(libclang.clang_getNumCompletionChunks(cstring)):
                 kind = libclang.clang_getCompletionChunkKind(cstring, chunk_num)
+                text = libclang.clang_getCompletionChunkText(cstring, chunk_num)
                 if kind == CXCompletionChunkKind.CXCompletionChunk_TypedText:
-                    head = libclang.clang_getCompletionChunkText(cstring, chunk_num)
-                    yield Bunch(head=head)
+                    head = text
+                elif kind == CXCompletionChunkKind.CXCompletionChunk_Placeholder:
+                    rest += "<#%s#>" % text
+                elif kind == CXCompletionChunkKind.CXCompletionChunk_ResultType:
+                    rest += "[#%s#]" % text
+                #elif kind == CXCompletionChunkKind.CXCompletionChunk_Optional:
+            yield Bunch(head=head, rest=rest)
 
 
     def __exit__(self, etype, evalue, tb):
@@ -143,7 +151,10 @@ class AsyncSession(object):
     def run_completion(self, row, col, outf):
         with TranslationUnit(self.idx, (row, col), self.unsaved_file(), self.args) as tu:
             for completion in tu:
-                completion_line = "COMPLETION: %s\n" % completion.head
+                completion_line = "COMPLETION: %s" % completion.head
+                if completion.rest:
+                    completion_line += " : %s" % completion.rest
+                completion_line += "\n"
                 logger.debug(completion_line)
                 outf.write(completion_line)
 
