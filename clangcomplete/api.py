@@ -167,6 +167,7 @@ class AsyncSession(object):
 
 
     def shutdown(self, inf, outf):
+        logger.debug("SHUTDOWN")
         self.running = False
 
 
